@@ -1,22 +1,23 @@
 import React from 'react';
-import { FaHome, FaRegComment, FaBell, FaUser,FaThumbsUp, FaComment } from 'react-icons/fa';
+import { FaHome, FaRegComment, FaBell, FaUser, FaThumbsUp, FaComment } from 'react-icons/fa';
 import { useState } from 'react';
-
+import axios from 'axios';
+import { getStorage, ref, getDownloadURL, uploadBytesResumable } from "firebase/storage";
+import app from './Firebase';
 import Navbar from './Navbar';
 import { useEffect } from 'react';
+import LoadingBar from './Loadingbar';
 function PostCard(props) {
   const [likes, setLikes] = useState(props.likes);
   const [isLiked, setIsLiked] = useState(false);
   const [comment, setComment] = useState('');
 
+
   const handleLikeClick = () => {
-    if (isLiked) {
-      setLikes(likes - 1);
-      setIsLiked(false);
-    } else {
-      setLikes(likes + 1);
-      setIsLiked(true);
-    }
+    if(props.likes.indexOf(props.user.id)==-1)
+        props.socket.emit('addlike', { postid: props.id, userid: props.user.id });
+    else
+        props.socket.emit('removelike', { postid: props.id, userid: props.user.id });
   };
 
   const handleCommentChange = (event) => {
@@ -25,24 +26,23 @@ function PostCard(props) {
 
   const handleCommentSubmit = (event) => {
     event.preventDefault();
-    // TODO: Add comment to post
-    setComment('');
+    props.socket.emit('addcomment', { postid: props.id, userid: props.user.id,comment:comment,userimage:props.user.profilepicture });
   };
-
+  // console.log(props.likes.indexOf(props.user.id));
   return (
     <div className="bg-white w-2/3 mx-auto rounded-md shadow-md p-4 mb-4">
       <div className="flex items-center">
-        <img className="h-10 w-10 rounded-full" src={props.imageUrl} alt={props.username} />
+        <img className="h-10 w-10 rounded-full" src={props.profilePictureUrl} alt={props.username} />
         <h2 className="text-lg ml-2">{props.username}</h2>
       </div>
-        <img className="my-4 mx-auto h-96 w-96 " src={props.imageUrl} />
+      <img className="my-4 mx-auto h-96 w-96 " src={props.imageUrl} />
       <p className="text-gray-600 mt-2">{props.content}</p>
       <div className="flex justify-between items-center mt-4">
         <div className="flex items-center">
           <button onClick={handleLikeClick} className="text-gray-600 hover:text-blue-500 focus:outline-none">
-            <FaThumbsUp size={24} className={isLiked ? 'text-blue-500' : ''} />
+            <FaThumbsUp onClick={handleLikeClick} size={24} className={props.likes.indexOf(props.user.id)!=-1 ? 'text-blue-500' : 'text-gray-600'} />
           </button>
-          <span className="text-gray-600 ml-2">{likes} Likes</span>
+          <span className="text-gray-600 ml-2">{props.likes.length} Likes</span>
         </div>
         <div className="flex items-center">
           <button className="text-gray-600 hover:text-blue-500 focus:outline-none">
@@ -52,8 +52,8 @@ function PostCard(props) {
         </div>
       </div>
       <div className="mt-4">
-        {props.comments.map((comment) => (
-          <div className="flex items-center mb-2">
+        {props.comments.map((comment,index) => (
+          <div className="flex items-center mb-2" key={index}>
             <img className="h-8 w-8 rounded-full" src={comment.avatarUrl} alt={comment.username} />
             <p className="text-gray-600 ml-2">{comment.content}</p>
           </div>
@@ -82,8 +82,61 @@ function PostCard(props) {
 
 function Homepage(props) {
   const [image, setImage] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [caption, setCaption] = useState('');
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('socialmediauser')));
+  const [loading, setLoading] = useState(false);
+  const storage = getStorage(app);
+  const upload = async () => {
+    if (image === null) {
+      alert("Please select an image");
+      return;
+    }
+    setLoading(true);
+    const storageRef = ref(storage, `files/${image.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, image);
+    uploadTask.on('state_changed',
+      (snapShot) => {
 
+        console.log(snapShot);
+      }, (err) => {
+        console.log(err);
+
+      }, () => {
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          Addpost(downloadURL);
+        });
+
+      });
+
+  }
+  const Addpost = (url) => {
+
+
+    axios.post('http://localhost:5000/api/post/createpost', {
+      'title': caption,
+      'image': url
+    }, {
+      headers: {
+        Authorization: `Bearer ${user.accessToken}`
+      },
+      params: {
+        id: user.id
+      }
+    }).then((res) => {
+
+      console.log(res);
+      setImage(null);
+      setCaption('');
+      setLoading(false);
+      alert("post added");
+    }).catch((err) => {
+      setLoading(false);
+      console.log(err);
+      alert("error");
+    });
+
+  }
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -100,48 +153,143 @@ function Homepage(props) {
     const file = e.target.files[0];
     setImage(file);
   }
+
+  const getposts = () => {
+    setLoading(true);
+    axios.get('http://localhost:5000/api/post/getposts', {
+      headers: {
+        Authorization: `Bearer ${user.accessToken}`
+      },
+    }).then((res) => {
+      let posts_ = [];
+      for (let i = 0; i < res.data.length; i++) {
+        if (res.data[i].user === user.id || res.data[i].user in user.following) {
+          axios.get('http://localhost:5000/api/user/getuser', {
+            headers: {
+              Authorization: `Bearer ${user.accessToken}`
+            },
+            params: {
+              id: res.data[i].user
+            }
+          }).then((res1) => {
+            posts_.push({ ...res.data[i], username: res1.data.username, profilepicture: res1.data.profilepicture });
+            setPosts(posts_);
+          }).catch((err) => {
+            console.log(err);
+          });
+        }
+      }
+      // console.log(posts_);
+      // console.log(posts[0]);
+      setLoading(false);
+    }
+    ).catch((err) => {
+      setLoading(false);
+      alert("error");
+      console.log(err);
+    }
+    );
+  }
+  props.socket.on('likeadded', (data) => {
+    if(data=="error")
+    {
+      alert("error");
+    }
+    else
+    {
+      // console.log(data);
+      let posts_=[...posts];
+      // console.log();
+      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
+      console.log(index);
+      posts_[index]=JSON.parse(data);
+      // console.log(posts_);
+      setPosts(posts_);
+      // console.log(posts);
+    }
+  });
+  props.socket.on('likeremoved', (data) => {
+    if(data=="error")
+    {
+      alert("error");
+    }
+    else
+    {
+      let posts_=[...posts];
+      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
+      posts_[index]=JSON.parse(data);
+      setPosts(posts_);
+    }
+  });
+  props.socket.on('commentadded', (data) => {
+    if(data=="error")
+    {
+      alert("error");
+    }
+    else
+    {
+      let posts_=[...posts];
+      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
+      posts_[index]=JSON.parse(data);
+      setPosts(posts_);
+    }
+  });
   const sendmessage = () => {
     props.socket.emit('message', { message: "hello world", username: 'MUDITTIWARI' });
   };
-  useEffect(()=>{
+  useEffect(() => {
     // sendmessage();
-  },[])
+    getposts();
+  }, [props.socket])
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar/>
-      <div className="p-6 bg-gray-100">
-      <h2 className="text-lg font-bold mb-2">Add Post</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex items-center justify-center h-max border-4 border-dashed border-gray-400 rounded-lg">
-          {image ? (
-            <img src={URL.createObjectURL(image)} alt="Selected image" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-gray-500">No image selected</span>
-          )}
+    <>
+      {loading && <LoadingBar />}
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="p-6 bg-gray-100">
+          <h2 className="text-lg font-bold mb-2">Add Post</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex items-center justify-center h-max border-4 border-dashed border-gray-400 rounded-lg">
+              {image ? (
+                <img src={URL.createObjectURL(image)} alt="Selected image" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-gray-500">No image selected</span>
+              )}
+            </div>
+            <label htmlFor="image" className="block text-gray-700 font-bold mb-2">Add Image</label>
+            <input type="file" accept="image/*" id="image" onChange={handleImageChange} className="px-4 py-2 border border-gray-400 rounded-lg w-full" />
+            <label htmlFor="caption" className="block text-gray-700 font-bold mb-2">Caption</label>
+            <textarea id="caption" value={caption} onChange={(e) => setCaption(e.target.value)} className="px-4 py-2 border border-gray-400 rounded-lg w-full resize-none" />
+            <button type="submit" className="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600" onClick={(e) => {
+              e.preventDefault();
+              upload();
+            }}>Submit</button>
+          </form>
         </div>
-        <label htmlFor="image" className="block text-gray-700 font-bold mb-2">Add Image</label>
-        <input type="file" accept="image/*" id="image" onChange={handleImageChange} className="px-4 py-2 border border-gray-400 rounded-lg w-full" />
-        <label htmlFor="caption" className="block text-gray-700 font-bold mb-2">Caption</label>
-        <textarea id="caption" value={caption} onChange={(e) => setCaption(e.target.value)} className="px-4 py-2 border border-gray-400 rounded-lg w-full resize-none"  />
-        <button type="submit" className="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600">Submit</button>
-      </form>
-    </div>
-      <div className="flex-1 bg-gray-100 p-4">
-        <p className="text-gray-600 w-max mx-auto font-bold text-3xl mb-4">Welcome to goodvibes!</p>
-        <PostCard 
-  profilePictureUrl="https://picsum.photos/id/237/200/300" 
-  username="JohnDoe" 
-  imageUrl="https://picsum.photos/id/237/500/500" 
-  caption="Beautiful sunset at the beach" 
-  likes={42} 
-  comments={[
-    {username: "JaneDoe", content: "Wow, stunning!", avatarUrl: "https://picsum.photos/id/237/200/300"},
-    {username: "BobSmith", content: "I wish I was there!", avatarUrl: "https://picsum.photos/id/237/200/300"}
-  ]}
-/>
+        <div className="flex-1 bg-gray-100 p-4">
+          <p className="text-gray-600 w-max mx-auto font-bold text-3xl mb-4">Welcome to goodvibes!</p>
+          {posts.length > 0 ? posts.map((post,index) => {
+            console.log(post);
+            return (
+              <PostCard
+                id={post.id}
+                user={user}
+                key={index}
+                socket={props.socket}
+                profilePictureUrl={post.profilepicture}
+                username={post.username}
+                imageUrl={post.image}
+                caption={post.title}
+                likes={post.likes}
+                comments={post.comments}
+              />
+            );
+          }) : <p className="text-gray-600 w-max mx-auto font-bold text-3xl mb-4">No posts to show</p>
+          }
 
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
