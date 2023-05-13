@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaHome, FaRegComment, FaBell, FaUser, FaThumbsUp, FaComment } from 'react-icons/fa';
+import { FaHome, FaRegComment, FaBell, FaUser, FaThumbsUp, FaComment, FaReply } from 'react-icons/fa';
 import { useState } from 'react';
 import axios from 'axios';
 import { getStorage, ref, getDownloadURL, uploadBytesResumable } from "firebase/storage";
@@ -14,10 +14,10 @@ function PostCard(props) {
 
 
   const handleLikeClick = () => {
-    if(props.likes.indexOf(props.user.id)==-1)
-        props.socket.emit('addlike', { postid: props.id, userid: props.user.id });
+    if (props.likes.indexOf(props.user.id) == -1)
+      props.socket.emit('addlike', { postid: props.id, userid: props.user.id });
     else
-        props.socket.emit('removelike', { postid: props.id, userid: props.user.id });
+      props.socket.emit('removelike', { postid: props.id, userid: props.user.id });
   };
 
   const handleCommentChange = (event) => {
@@ -26,9 +26,9 @@ function PostCard(props) {
 
   const handleCommentSubmit = (event) => {
     event.preventDefault();
-    props.socket.emit('addcomment', { postid: props.id, userid: props.user.id,comment:comment,userimage:props.user.profilepicture });
+    props.socket.emit('addcomment', { postid: props.id, userid: props.user.id, comment: comment, userimage: props.user.profilepicture, username: props.user.username });
+    setComment('');
   };
-  // console.log(props.likes.indexOf(props.user.id));
   return (
     <div className="bg-white w-2/3 mx-auto rounded-md shadow-md p-4 mb-4">
       <div className="flex items-center">
@@ -40,7 +40,7 @@ function PostCard(props) {
       <div className="flex justify-between items-center mt-4">
         <div className="flex items-center">
           <button onClick={handleLikeClick} className="text-gray-600 hover:text-blue-500 focus:outline-none">
-            <FaThumbsUp onClick={handleLikeClick} size={24} className={props.likes.indexOf(props.user.id)!=-1 ? 'text-blue-500' : 'text-gray-600'} />
+            <FaThumbsUp onClick={handleLikeClick} size={24} className={props.likes.indexOf(props.user.id) != -1 ? 'text-blue-500' : 'text-gray-600'} />
           </button>
           <span className="text-gray-600 ml-2">{props.likes.length} Likes</span>
         </div>
@@ -52,14 +52,33 @@ function PostCard(props) {
         </div>
       </div>
       <div className="mt-4">
-        {props.comments.map((comment,index) => (
-          <div className="flex items-center mb-2" key={index}>
-            <img className="h-8 w-8 rounded-full" src={comment.avatarUrl} alt={comment.username} />
-            <p className="text-gray-600 ml-2">{comment.content}</p>
+        {props.comments.map((comment, index) => (
+
+          <div className="flex items-start mb-2 flex-col " key={index}>
+            <div className='flex items-center'>
+              <img className="h-8 w-8 rounded-full" src={comment.userimage} alt={comment.username} />
+              <div className='flex flex-col'>
+                <p className="text-gray-600 ml-2">{comment.comment}<FaReply className='ml-2 inline' size={14} /></p>
+
+              </div>
+            </div>
+            {comment.replies.map((reply, index) => {
+              return (
+                <div className='ml-4'>
+                  <img className="h-8 w-8 rounded-full" src={comment.userimage} alt={comment.username} />
+                  <div className='flex flex-col'>
+                    <p className="text-gray-600 ml-2">{comment.comment}<FaReply className='ml-2 inline' size={14} /></p>
+
+                  </div>
+                </div>
+              )
+            })
+            }
           </div>
+
         ))}
         <form onSubmit={handleCommentSubmit} className="flex items-center mt-2">
-          <img className="h-8 w-8 rounded-full" src={props.imageUrl} alt="Your Avatar" />
+          <img className="h-8 w-8 rounded-full" src={props.user.profilepicture} alt={props.user.username} />
           <input
             type="text"
             placeholder="Add a comment..."
@@ -124,7 +143,7 @@ function Homepage(props) {
         id: user.id
       }
     }).then((res) => {
-
+      getposts();
       console.log(res);
       setImage(null);
       setCaption('');
@@ -162,9 +181,10 @@ function Homepage(props) {
       },
     }).then((res) => {
       let posts_ = [];
+      const promises = [];
       for (let i = 0; i < res.data.length; i++) {
         if (res.data[i].user === user.id || res.data[i].user in user.following) {
-          axios.get('http://localhost:5000/api/user/getuser', {
+          const promise = axios.get('http://localhost:5000/api/user/getuser', {
             headers: {
               Authorization: `Bearer ${user.accessToken}`
             },
@@ -173,15 +193,21 @@ function Homepage(props) {
             }
           }).then((res1) => {
             posts_.push({ ...res.data[i], username: res1.data.username, profilepicture: res1.data.profilepicture });
-            setPosts(posts_);
           }).catch((err) => {
             console.log(err);
           });
+          promises.push(promise);
         }
       }
-      // console.log(posts_);
-      // console.log(posts[0]);
-      setLoading(false);
+      Promise.all(promises).then(() => {
+        console.log(posts_);
+        setPosts(posts_);
+        setLoading(false);
+      }).catch((err) => {
+        console.log(err);
+        setLoading(false);
+        alert("error");
+      });
     }
     ).catch((err) => {
       setLoading(false);
@@ -191,46 +217,40 @@ function Homepage(props) {
     );
   }
   props.socket.on('likeadded', (data) => {
-    if(data=="error")
-    {
+    if (data == "error") {
       alert("error");
     }
-    else
-    {
+    else {
       // console.log(data);
-      let posts_=[...posts];
+      let posts_ = [...posts];
       // console.log();
-      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
+      let index = posts_.findIndex((post) => post.id == JSON.parse(data).id);
       console.log(index);
-      posts_[index]=JSON.parse(data);
+      posts_[index] = JSON.parse(data);
       // console.log(posts_);
       setPosts(posts_);
       // console.log(posts);
     }
   });
   props.socket.on('likeremoved', (data) => {
-    if(data=="error")
-    {
+    if (data == "error") {
       alert("error");
     }
-    else
-    {
-      let posts_=[...posts];
-      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
-      posts_[index]=JSON.parse(data);
+    else {
+      let posts_ = [...posts];
+      let index = posts_.findIndex((post) => post.id == JSON.parse(data).id);
+      posts_[index] = JSON.parse(data);
       setPosts(posts_);
     }
   });
   props.socket.on('commentadded', (data) => {
-    if(data=="error")
-    {
+    if (data == "error") {
       alert("error");
     }
-    else
-    {
-      let posts_=[...posts];
-      let index=posts_.findIndex((post)=>post.id==JSON.parse(data).id);
-      posts_[index]=JSON.parse(data);
+    else {
+      let posts_ = [...posts];
+      let index = posts_.findIndex((post) => post.id == JSON.parse(data).id);
+      posts_[index] = JSON.parse(data);
       setPosts(posts_);
     }
   });
@@ -268,8 +288,7 @@ function Homepage(props) {
         </div>
         <div className="flex-1 bg-gray-100 p-4">
           <p className="text-gray-600 w-max mx-auto font-bold text-3xl mb-4">Welcome to goodvibes!</p>
-          {posts.length > 0 ? posts.map((post,index) => {
-            console.log(post);
+          {posts.length > 0 ? posts.map((post, index) => {
             return (
               <PostCard
                 id={post.id}
