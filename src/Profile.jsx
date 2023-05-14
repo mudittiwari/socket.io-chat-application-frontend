@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-
+import axios from "axios";
+import { useEffect } from "react";
 function Card(props)
 {
     const navigate = useNavigate();
@@ -11,7 +12,7 @@ function Card(props)
         {props.posts.map((post, index) => (
           <div key={index} className="relative">
             <img
-              className="w-full rounded-md object-cover"
+              className="w-full rounded-md h-full"
               src={post.image}
               alt="Post Image"
             />
@@ -26,36 +27,35 @@ function Card(props)
 }
 
 const Userprofile = () => {
+  const [userposts, setuserposts] = React.useState([]);
+  const [user,setUser] = React.useState(JSON.parse(localStorage.getItem('socialmediauser')));
+  const getuserposts = async () => {
+    axios.get('http://localhost:5000/api/post/getposts', {
+      headers: {
+        Authorization: `Bearer ${user.accessToken}`
+      },
+    }).then((res)=>{
+      console.log(res.data);
+      setuserposts(res.data);
+    })
+  };
+  useEffect(() => {
+    getuserposts();
+  }, []);
+
     const navigate = useNavigate();
-    const posts = [
-        {
-          image: 'https://picsum.photos/id/1003/400/400',
-          title: 'Beautiful mountain view'
-        },
-        {
-          image: 'https://picsum.photos/id/1011/400/400',
-          title: 'Sunset over the ocean'
-        },
-        {
-            image: 'https://picsum.photos/id/1003/400/400',
-            title: 'Beautiful mountain view'
-          },
-          {
-            image: 'https://picsum.photos/id/1011/400/400',
-            title: 'Sunset over the ocean'
-          }
-      ];
+    
   return (
     <div className="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
       <div className="container mx-auto">
         <div className="flex justify-between items-center px-4 py-6">
           <div className="flex">
             <div className="mr-6">
-              <img src="https://source.unsplash.com/500x500/?portrait" alt="User Profile" className="h-20 w-20 rounded-full border-4 border-white" />
+              <img src={user.profilepicture} alt="User Profile" className="h-20 w-20 rounded-full border-4 border-white" />
             </div>
             <div>
-              <h2 className="text-3xl font-bold text-white">Jane Doe</h2>
-              <p className="text-lg font-medium text-gray-200">@janedoe</p>
+              <h2 className="text-3xl font-bold text-white">{user.name}</h2>
+              <p className="text-lg font-medium text-gray-200">{user.username}</p>
             </div>
           </div>
           <div>
@@ -68,19 +68,19 @@ const Userprofile = () => {
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-medium mb-4">Posts</h3>
-            <p className="text-xl font-bold">150</p>
+            <p className="text-xl font-bold">{userposts.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-medium mb-4">Followers</h3>
-            <p className="text-xl font-bold">4.5K</p>
+            <h3 className="text-lg font-medium mb-4">Friends</h3>
+            <p className="text-xl font-bold">{user.friends.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-medium mb-4">Following</h3>
-            <p className="text-xl font-bold">250</p>
+            <h3 className="text-lg font-medium mb-4">Friend Requests</h3>
+            <p className="text-xl font-bold">{user.friendrequestsreceived.length}</p>
           </div>
         </div>
         <div className="mt-8">
-          <Card  posts={posts}/>
+          <Card  posts={userposts}/>
         </div>
       </div>
     </div>
