@@ -58,22 +58,11 @@ function PostCard(props) {
             <div className='flex items-center'>
               <img className="h-8 w-8 rounded-full" src={comment.userimage} alt={comment.username} />
               <div className='flex flex-col'>
-                <p className="text-gray-600 ml-2">{comment.comment}<FaReply className='ml-2 inline' size={14} /></p>
+                <p className="text-gray-600 ml-2">{comment.comment}</p>
 
               </div>
             </div>
-            {comment.replies.map((reply, index) => {
-              return (
-                <div className='ml-4'>
-                  <img className="h-8 w-8 rounded-full" src={comment.userimage} alt={comment.username} />
-                  <div className='flex flex-col'>
-                    <p className="text-gray-600 ml-2">{comment.comment}<FaReply className='ml-2 inline' size={14} /></p>
 
-                  </div>
-                </div>
-              )
-            })
-            }
           </div>
 
         ))}
@@ -134,7 +123,9 @@ function Homepage(props) {
 
     axios.post('http://localhost:5000/api/post/createpost', {
       'title': caption,
-      'image': url
+      'image': url,
+      'username': user.username,
+      'userimage': user.profilepicture,
     }, {
       headers: {
         Authorization: `Bearer ${user.accessToken}`
@@ -183,7 +174,7 @@ function Homepage(props) {
       let posts_ = [];
       const promises = [];
       for (let i = 0; i < res.data.length; i++) {
-        if (res.data[i].user === user.id || res.data[i].user in user.following) {
+        if (res.data[i].user === user.id || res.data[i].user in user.friends) {
           const promise = axios.get('http://localhost:5000/api/user/getuser', {
             headers: {
               Authorization: `Bearer ${user.accessToken}`
@@ -206,7 +197,7 @@ function Homepage(props) {
       }).catch((err) => {
         console.log(err);
         setLoading(false);
-        alert("error");
+        // alert("error");
       });
     }
     ).catch((err) => {
@@ -259,6 +250,7 @@ function Homepage(props) {
   };
   useEffect(() => {
     // sendmessage();
+    console.log(user);
     getposts();
   }, [props.socket])
   return (
@@ -295,7 +287,7 @@ function Homepage(props) {
                 user={user}
                 key={index}
                 socket={props.socket}
-                profilePictureUrl={post.profilepicture}
+                profilePictureUrl={post.userimage}
                 username={post.username}
                 imageUrl={post.image}
                 caption={post.title}

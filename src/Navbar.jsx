@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { FaHome, FaRegComment, FaBell, FaUser,FaThumbsUp, FaComment } from 'react-icons/fa';
+import { FaHome, FaRegComment, FaBell, FaUser,FaUsers } from 'react-icons/fa';
+import { RiUserReceived2Fill } from 'react-icons/ri';
 function Navbar()
 {
     return (
@@ -10,9 +11,12 @@ function Navbar()
           <h1 className="text-white font-bold ml-2 text-xl">My App</h1>
         </div>
         <div className="flex items-center">
-          <a href="#" className="text-white hover:text-gray-200 mr-6">
-            <FaHome size={24} />
-          </a>
+        <Link to='/search' className="text-white hover:text-gray-200 mr-6">
+            <RiUserReceived2Fill size={24} />
+          </Link>
+          <Link to='/search' className="text-white hover:text-gray-200 mr-6">
+            <FaUsers size={24} />
+          </Link>
           <Link to='/messages' className="text-white hover:text-gray-200 mr-6">
             <FaRegComment size={24} />
           </Link>

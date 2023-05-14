@@ -7,6 +7,7 @@ import Userprofile from './Profile';
 import EditProfile from './Editprofile';
 import Signup from './Signup';
 import io from 'socket.io-client';
+import Searchpage from './Searchpage';
 const socket=io.connect("http://localhost:5000");
 function App()
 {
@@ -19,6 +20,7 @@ function App()
           <Route exact  path="/login" element={<Login />} />
           <Route exact  path="/signup" element={<Signup />} />
           <Route exact  path="/messages" element={<Messages />} />
+          <Route exact  path="/search" element={<Searchpage socket={socket}/>} />
           <Route exact  path="/notifications" element={<Notifications />} />
           <Route exact  path="/profile" element={<Userprofile  />} />
           <Route exact  path="/editprofile" element={<EditProfile  />} />
