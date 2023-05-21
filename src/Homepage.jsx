@@ -171,10 +171,11 @@ function Homepage(props) {
         Authorization: `Bearer ${user.accessToken}`
       },
     }).then((res) => {
+      console.log(res);
       let posts_ = [];
       const promises = [];
       for (let i = 0; i < res.data.length; i++) {
-        if (res.data[i].user === user.id || res.data[i].user in user.friends) {
+        if (res.data[i].user === user.id || user.friends.includes(res.data[i].user)) {
           const promise = axios.get('http://localhost:5000/api/user/getuser', {
             headers: {
               Authorization: `Bearer ${user.accessToken}`
@@ -212,11 +213,11 @@ function Homepage(props) {
       alert("error");
     }
     else {
+      console.log("mudit tiwari");
       // console.log(data);
       let posts_ = [...posts];
       // console.log();
       let index = posts_.findIndex((post) => post.id == JSON.parse(data).id);
-      console.log(index);
       posts_[index] = JSON.parse(data);
       // console.log(posts_);
       setPosts(posts_);
@@ -245,9 +246,12 @@ function Homepage(props) {
       setPosts(posts_);
     }
   });
-  const sendmessage = () => {
-    props.socket.emit('message', { message: "hello world", username: 'MUDITTIWARI' });
-  };
+
+  props.socket.on('safelyconnected', (data) => {
+    // alert(data);
+    console.log(data);
+  });
+
   useEffect(() => {
     // sendmessage();
     console.log(user);

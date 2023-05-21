@@ -1,14 +1,13 @@
 import Navbar from "./Navbar";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import cryptojs from "crypto-js";
 import { useState } from "react";
 import LoadingBar from "./Loadingbar";
 import { getStorage, ref, getDownloadURL, uploadBytesResumable } from "firebase/storage";
 import app from './Firebase';
 
 
-const Modal = ({ isOpen, onClose }) => {
+const Modal = ({ isOpen, onClose,resetpassword }) => {
   const [oldpassword, setOldpassword] = useState("");
   const [newpassword, setNewpassword] = useState("");
   return (
@@ -60,7 +59,7 @@ const Modal = ({ isOpen, onClose }) => {
             type="submit"
             onClick={(e) => {
               e.preventDefault();
-              EditProfile();
+              resetpassword(oldpassword,newpassword);
             }}
 
           >
@@ -96,8 +95,6 @@ function EditProfile() {
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username);
   const [loading, setLoading] = useState(false);
-  const [imageurl, setimageurl] = useState("");
-  const [password, setPassword] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   const openModal = () => {
@@ -120,16 +117,25 @@ function EditProfile() {
 
       }, () => {
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          setimageurl(downloadURL);
           axios.post('http://localhost:5000/api/user/updateuser', {
             'name': name,
             'username': username,
-            'password': password,
-            'image': downloadURL
+            'profilepicture': downloadURL
+          },{
+            headers: {
+              'Authorization': `Bearer ${user.accessToken}`
+            },
+            params:{
+              'id':user.id
+            }
           }).then((res) => {
             if (res.status === 200) {
               setLoading(false);
               alert("Profile Updated");
+              let newuser=res.data;
+              newuser.accessToken=user.accessToken;
+              localStorage.setItem("socialmediauser",JSON.stringify(newuser));
+              setUser(newuser);
             }
           }).catch((err) => {
             console.log(err);
@@ -148,17 +154,28 @@ function EditProfile() {
 
 
   async function editprofile() {
-    if (imageurl === "") {
+    if (image === null) {
       setLoading(true);
-      axios.post('http://localhost:5000/api/user/updateprofile', {
+      axios.post('http://localhost:5000/api/user/updateuser', {
         'name': name,
         'username': username,
-        'password': password,
-        'image': user.profilepicture
+        'profilepicture': user.profilepicture
+      },{
+        headers: {
+          'Authorization': `Bearer ${user.accessToken}`
+        },
+        params:{
+          'id':user.id
+        }
       }).then((res) => {
         if (res.status === 200) {
           setLoading(false);
+          // console.log(res.data);
           alert("Profile Updated");
+          let newuser=res.data;
+          newuser.accessToken=user.accessToken;
+          localStorage.setItem("socialmediauser",JSON.stringify(newuser));
+          setUser(newuser);
         }
       }).catch((err) => {
         console.log(err);
@@ -171,10 +188,36 @@ function EditProfile() {
     }
   }
 
+  async function resetpassword(oldpassword, newpassword)
+  {
+    setLoading(true);
+    axios.post('http://localhost:5000/api/user/resetpassword', {
+      'oldpassword': oldpassword,
+      'newpassword': newpassword
+    },{
+      headers: {
+        'Authorization': `Bearer ${user.accessToken}`
+      },
+      params:{
+        'id':user.id
+      }
+    }).then((res) => {
+      if (res.status === 200) {
+        setLoading(false);
+        alert("Password Changed");
+        closeModal();
+      }
+    }).catch((err) => {
+      console.log(err);
+      setLoading(false);
+      alert("error");
+    });
+  }
+
   return (
     <>
       {loading && <LoadingBar />}
-      <Modal isOpen={modalOpen} onClose={closeModal} />
+      <Modal resetpassword={resetpassword} isOpen={modalOpen} onClose={closeModal} />
       <div className="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 min-h-screen">
         {/* <Navbar /> */}
         <div className="container mx-auto max-w-screen-lg py-10">

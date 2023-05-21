@@ -7,7 +7,6 @@ const SearchCard = ({ user, userid, username, userimage, socket }) => {
     const sendreq = async (id) => {
         socket.emit('sendreq', { 'id': id, 'user': JSON.parse(localStorage.getItem('socialmediauser')).id });
     };
-    console.log(user.friendrequestsreceived.includes(userid));
     if (user.friends.includes(userid)) {
         return (
             <div className='flex items-center justify-between px-4 my-2 py-3 bg-gray-200 rounded-md w-full'>
@@ -96,9 +95,9 @@ const SearchCard = ({ user, userid, username, userimage, socket }) => {
 const Searchpage = (props) => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('socialmediauser')));
-    console.log(user);
     const getusers = async () => {
+        let user = JSON.parse(localStorage.getItem('socialmediauser'));
+        console.log(user);
         axios.get('http://localhost:5000/api/user/getallusers', {
             headers: {
                 Authorization: `Bearer ${user.accessToken}`
@@ -115,11 +114,31 @@ const Searchpage = (props) => {
         });
     };
     props.socket.on('reqsent', (data) => {
+        let user=JSON.parse(localStorage.getItem('socialmediauser'));
+        if(data==="error")
+        {
+            alert("error");
+            return;
+        }
         let token=user.accessToken;
         let newuser=JSON.parse(data);
         newuser.accessToken=token;
         localStorage.setItem('socialmediauser',JSON.stringify(newuser));
-        // getusers();
+        getusers();
+    });
+    props.socket.on('reqaccepted', (data) => {
+        let user=JSON.parse(localStorage.getItem('socialmediauser'));
+        if(data==="error")
+        {
+            alert("error");
+            return;
+        }
+        // console.log(data);
+        let newuser=JSON.parse(data);
+        newuser.accessToken=user.accessToken;
+        localStorage.setItem("socialmediauser",JSON.stringify(newuser));
+        // console.log(user);
+        // getrequests();
     });
     useEffect(() => {
         getusers();
