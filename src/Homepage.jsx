@@ -247,11 +247,6 @@ function Homepage(props) {
     }
   });
 
-  props.socket.on('safelyconnected', (data) => {
-    // alert(data);
-    console.log(data);
-  });
-
   useEffect(() => {
     // sendmessage();
     console.log(user);

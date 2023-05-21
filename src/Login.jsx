@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingBar from './Loadingbar';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-function Login() {
+function Login({socket}) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -19,6 +19,7 @@ function Login() {
       if (res.status === 200) {
         console.log(res.data);
         localStorage.setItem('socialmediauser', JSON.stringify(res.data));
+        socket.emit('newlogin', {'email':JSON.parse(localStorage.getItem('socialmediauser')).email});
         navigate('/');
       }
       else {
@@ -26,6 +27,8 @@ function Login() {
       }
     });
   }
+  useEffect(() => {
+  },[socket]);
   return (
     <>
       {loading && <LoadingBar />}
